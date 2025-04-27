@@ -106,7 +106,7 @@ async function extractImages(url) {
       } else if (url.includes("ebay")) {
         // eBay specific selectors
         document
-          .querySelectorAll('[data-submodule="ProductImageThumbsList"] img')
+          .querySelectorAll(".ux-image-grid-container img")
           .forEach((img) => {
             if (img.src) imageUrls.add(img.src);
           });
@@ -117,9 +117,11 @@ async function extractImages(url) {
         });
       } else if (url.includes("alibaba")) {
         // eBay specific selectors
-        document.querySelectorAll(".pdp-info-left img").forEach((img) => {
-          if (img.src) imageUrls.add(img.src);
-        });
+        document
+          .querySelectorAll("[data-submodule='ProductImageThumbsList'] img")
+          .forEach((img) => {
+            if (img.src) imageUrls.add(img.src);
+          });
       } else if (url.includes("etsy")) {
         // eBay specific selectors
         document.querySelectorAll(".image-wrapper img").forEach((img) => {
