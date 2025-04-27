@@ -1,6 +1,10 @@
 const express = require("express");
-const puppeteer = require("puppeteer");
+const puppeteerExtra = require("puppeteer-extra");
+const StealthPlugin = require("puppeteer-extra-plugin-stealth");
 const fs = require("fs");
+
+// Add the stealth plugin
+puppeteerExtra.use(StealthPlugin());
 
 const app = express();
 
@@ -28,9 +32,15 @@ const PORT = 3000;
 async function extractImages(url) {
   console.log("extractImages", url);
 
-  const browser = await puppeteer.launch({
+  // Use puppeteerExtra.launch instead of puppeteer.launch
+  const browser = await puppeteerExtra.launch({
     headless: "new",
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--window-size=1920,1080",
+    ],
+    ignoreHTTPSErrors: true,
   });
 
   try {
@@ -39,10 +49,21 @@ async function extractImages(url) {
     // Set viewport size
     await page.setViewport({ width: 1920, height: 1080 });
 
-    // Set user agent
+    // Set a more realistic user agent
     await page.setUserAgent(
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36"
     );
+
+    // Add cookies from a previous session if available
+    try {
+      if (fs.existsSync("./cookies.json") && url.includes("etsy")) {
+        const cookiesString = fs.readFileSync("./cookies.json");
+        const cookies = JSON.parse(cookiesString);
+        await page.setCookie(...cookies);
+      }
+    } catch (e) {
+      console.log("No cookies found");
+    }
 
     // Add console listener
     page.on("console", (message) =>
@@ -51,13 +72,22 @@ async function extractImages(url) {
 
     // Navigate to the URL with additional settings
     await page.goto(url, {
-      waitUntil: ["load", "domcontentloaded"],
+      waitUntil: ["load", "domcontentloaded", "networkidle2"],
       timeout: 60000,
     });
 
+    // Scroll down slowly to simulate human behavior
+    await autoScroll(page);
+
     // Wait for body to be available
     await page.waitForSelector("body");
-    await new Promise((resolve) => setTimeout(resolve, 5000));
+
+    // Add a longer wait time for Etsy specifically
+    if (url.includes("etsy")) {
+      await new Promise((resolve) => setTimeout(resolve, 10000));
+    } else {
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+    }
 
     // Extract images based on the website
     const images = await page.evaluate(async (url) => {
@@ -111,22 +141,51 @@ async function extractImages(url) {
             if (img.src) imageUrls.add(img.src);
           });
       } else if (url.includes("tiktok")) {
-        // eBay specific selectors
-        document.querySelectorAll("#icImg, .img-wrapper img").forEach((img) => {
+        document.querySelectorAll("img.lazy-img__onload").forEach((img) => {
           if (img.src) imageUrls.add(img.src);
         });
       } else if (url.includes("alibaba")) {
-        // eBay specific selectors
-        document
-          .querySelectorAll("[data-submodule='ProductImageThumbsList'] img")
-          .forEach((img) => {
+        const container = document.querySelector(
+          "[data-section='SectionOverview']"
+        );
+        console.log("container", container);
+
+        if (container) {
+          container.querySelectorAll("img").forEach((img) => {
+            console.log("img", img.src);
             if (img.src) imageUrls.add(img.src);
           });
-      } else if (url.includes("etsy")) {
-        // eBay specific selectors
-        document.querySelectorAll(".image-wrapper img").forEach((img) => {
+        } else {
+          // Fallback to generic image extraction for Alibaba
+          document.querySelectorAll("img").forEach((img) => {
+            if (
+              img.src &&
+              img.src.match(/\.(jpg|jpeg|png|webp)/i) &&
+              !img.src.includes("icon") &&
+              !img.src.endsWith("gif") &&
+              img.width > 100 &&
+              img.height > 100
+            ) {
+              imageUrls.add(img.src);
+            }
+          });
+        }
+      } else if (url.includes("etsy.com")) {
+        console.log(
+          "etsy",
+          document.querySelectorAll("img.carousel-image").length
+        );
+
+        document.querySelectorAll("img.carousel-image").forEach((img) => {
           if (img.src) imageUrls.add(img.src);
         });
+
+        // Fallback for Etsy if no carousel images found
+        if (imageUrls.size === 0) {
+          document.querySelectorAll("img.wt-max-width-full").forEach((img) => {
+            if (img.src) imageUrls.add(img.src);
+          });
+        }
       } else if (imageUrls.size === 0) {
         // Generic image extraction
         document.querySelectorAll("img").forEach((img) => {
@@ -144,8 +203,13 @@ async function extractImages(url) {
       return Array.from(imageUrls);
     }, url);
 
+    // Save cookies after successful navigation for future use
+    if (url.includes("etsy")) {
+      const cookies = await page.cookies();
+      fs.writeFileSync("./cookies.json", JSON.stringify(cookies, null, 2));
+    }
+
     // If you need to save HTML content, do it here instead
-    // For example, you could get the HTML content first:
     if (url.includes("amazon")) {
       const amazonHtml = await page.content();
       fs.writeFileSync("amazon-element.log", amazonHtml);
@@ -174,6 +238,30 @@ app.post("/extract-images", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+app
+  .listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  })
+  .on("error", (err) => {
+    console.error(err);
+  });
+
+// Add this function to simulate scrolling
+async function autoScroll(page) {
+  await page.evaluate(async () => {
+    await new Promise((resolve) => {
+      let totalHeight = 0;
+      const distance = 100;
+      const timer = setInterval(() => {
+        const scrollHeight = document.body.scrollHeight;
+        window.scrollBy(0, distance);
+        totalHeight += distance;
+
+        if (totalHeight >= scrollHeight) {
+          clearInterval(timer);
+          resolve();
+        }
+      }, 100);
+    });
+  });
+}
