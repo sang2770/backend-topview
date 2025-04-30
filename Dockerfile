@@ -41,4 +41,4 @@ ENV PUPPETEER_CACHE_DIR=/root/.cache/puppeteer
 EXPOSE 3000
 
 # Command để khởi chạy app
-CMD ["node", "index.js"]
+CMD ["npm", "start"]
