@@ -1,0 +1,31 @@
+[
+  {
+    "name": "datadome",
+    "value": "9qabARjR6oEYpZeSQOns7OO4aezhH4vc5EwpcwoiNErAQrOsePqNQuw7NmeoFfHp85xH99lb1nahzBAVs3nnIRaS7wQwyxP95Ibl12LKZsw_5Mqmy~yMmqPrBgH1GSNl",
+    "domain": ".etsy.com",
+    "path": "/",
+    "expires": 1777305783.236171,
+    "size": 136,
+    "httpOnly": false,
+    "secure": true,
+    "session": false,
+    "sameSite": "Lax",
+    "priority": "Medium",
+    "sameParty": false,
+    "sourceScheme": "Secure"
+  },
+  {
+    "name": "exp_ebid",
+    "value": "m=Dkx8bTkHVG%2FNpbWMQ9KyWjvbS%2FidUej3ACRW1%2Bv3Hkc%3D,v=9iz7r9GUi8-kYkfFg3paTBBR3mYG-pnZ",
+    "domain": ".etsy.com",
+    "path": "/",
+    "expires": 1750953784.342132,
+    "size": 97,
+    "httpOnly": false,
+    "secure": true,
+    "session": false,
+    "priority": "Medium",
+    "sameParty": false,
+    "sourceScheme": "Secure"
+  }
+]
