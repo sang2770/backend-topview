@@ -1,7 +1,6 @@
-# Dùng image node base có apt để cài các gói cần thiết
 FROM node:18-slim
 
-# Install các dependency cần thiết để Chromium chạy được
+# Cài Chromium dependencies (bao gồm libgbm1)
 RUN apt-get update && apt-get install -y \
   wget \
   ca-certificates \
@@ -19,25 +18,25 @@ RUN apt-get update && apt-get install -y \
   libxcomposite1 \
   libxdamage1 \
   libxrandr2 \
+  libgbm1 \
   xdg-utils \
   --no-install-recommends && \
   apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Tạo thư mục chứa project
+# Tạo thư mục app
 WORKDIR /app
 
-# Copy file và cài đặt
+# Cài npm packages
 COPY package*.json ./
 RUN npm install
 
-# Copy toàn bộ source code vào
+# Copy source code
 COPY . .
 
-# Puppeteer sẽ tải Chromium tại thời điểm cài đặt
+# Đảm bảo Puppeteer sẽ tải Chromium (hoặc bạn có thể tự bundle nếu cần)
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=false
 ENV PUPPETEER_CACHE_DIR=/root/.cache/puppeteer
 
-# Expose port (nếu app sử dụng port khác, thay đổi tại đây)
 EXPOSE 3000
 
 # Command để khởi chạy app
