@@ -88,13 +88,21 @@ async function extractImages(url) {
     } else {
       await new Promise((resolve) => setTimeout(resolve, 5000));
     }
+    let title = await page.title();
+    let description = await page.evaluate(() => {
+      const metaDescription = document.querySelector(
+        'meta[name="description"]'
+      );
+      return metaDescription ? metaDescription.content : "";
+    });
 
     // Extract images based on the website
     const images = await page.evaluate(async (url) => {
-      console.log("evaluate");
 
       const imageUrls = new Set();
       if (url.includes("amazon")) {
+        title = document.querySelector("#title").textContent ?? document.title;
+        description = document.querySelector("#feature-bullets").textContent ?? description; 
         const element = document.querySelector("#imageBlock_feature_div");
         if (element) {
           // Extract image URLs from the HTML content with "large" format
@@ -134,6 +142,8 @@ async function extractImages(url) {
           }
         }
       } else if (url.includes("ebay")) {
+        title = document.querySelector("h1").textContent?? document.title;
+        description = document.querySelector("p").textContent?? description;
         // eBay specific selectors
         document
           .querySelectorAll(".ux-image-grid-container img")
@@ -187,11 +197,10 @@ async function extractImages(url) {
           });
         }
       } else if (imageUrls.size === 0) {
-        // Generic image extraction
+        // Generic image extraction        
         document.querySelectorAll("img").forEach((img) => {
           if (
             img.src &&
-            img.src.match(/\.(jpg|jpeg|png|webp)/i) &&
             !img.src.includes("icon") &&
             !img.src.endsWith("gif")
           ) {
@@ -215,7 +224,11 @@ async function extractImages(url) {
       fs.writeFileSync("amazon-element.log", amazonHtml);
     }
 
-    return images;
+    return {
+      title,
+      description,
+      images,
+    };
   } catch (error) {
     throw new Error(`Failed to extract images: ${error.message}`);
   } finally {
@@ -231,8 +244,8 @@ app.post("/extract-images", async (req, res) => {
       return res.status(400).json({ error: "URL is required" });
     }
 
-    const images = await extractImages(url);
-    res.json({ images });
+    const response = await extractImages(url);
+    res.json(response);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
