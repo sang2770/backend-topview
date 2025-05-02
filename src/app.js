@@ -76,33 +76,29 @@ async function extractImages(url) {
       timeout: 60000,
     });
 
-    // Scroll down slowly to simulate human behavior
-    await autoScroll(page);
-
     // Wait for body to be available
     await page.waitForSelector("body");
 
     // Add a longer wait time for Etsy specifically
-    if (url.includes("etsy")) {
-      await new Promise((resolve) => setTimeout(resolve, 10000));
-    } else {
-      await new Promise((resolve) => setTimeout(resolve, 5000));
-    }
-    let title = await page.title();
-    let description = await page.evaluate(() => {
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+
+    var title = await page.title();
+    var description = await page.evaluate(() => {
       const metaDescription = document.querySelector(
         'meta[name="description"]'
       );
       return metaDescription ? metaDescription.content : "";
-    });
+    }) ?? "";
 
     // Extract images based on the website
-    const images = await page.evaluate(async (url) => {
-
+    const images = await page.evaluate(async (url, initialDescription) => {
       const imageUrls = new Set();
+      let localTitle = document.title;
+      let localDescription = initialDescription;
+
       if (url.includes("amazon")) {
-        title = document.querySelector("#title").textContent ?? document.title;
-        description = document.querySelector("#feature-bullets").textContent ?? description; 
+        localTitle = document.querySelector("#title")?.textContent ?? document.title;
+        localDescription = document.querySelector("#feature-bullets")?.textContent ?? initialDescription;
         const element = document.querySelector("#imageBlock_feature_div");
         if (element) {
           // Extract image URLs from the HTML content with "large" format
@@ -142,8 +138,8 @@ async function extractImages(url) {
           }
         }
       } else if (url.includes("ebay")) {
-        title = document.querySelector("h1").textContent?? document.title;
-        description = document.querySelector("p").textContent?? description;
+        localTitle = document.querySelector("h1")?.textContent ?? document.title;
+        localDescription = document.querySelector("p")?.textContent ?? initialDescription;
         // eBay specific selectors
         document
           .querySelectorAll(".ux-image-grid-container img")
@@ -210,7 +206,13 @@ async function extractImages(url) {
       }
 
       return Array.from(imageUrls);
-    }, url);
+    }, url, description);
+
+    return {
+      title,
+      description,
+      images,
+    };
 
     // Save cookies after successful navigation for future use
     if (url.includes("etsy")) {
@@ -230,6 +232,8 @@ async function extractImages(url) {
       images,
     };
   } catch (error) {
+    console.log("error", error);
+    
     throw new Error(`Failed to extract images: ${error.message}`);
   } finally {
     await browser.close();
