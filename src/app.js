@@ -31,21 +31,49 @@ const PORT = 3000;
 
 async function extractImages(url) {
   console.log("extractImages", url);
-
-  // Use puppeteerExtra.launch instead of puppeteer.launch
+  
   const browser = await puppeteerExtra.launch({
     headless: "new",
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
       "--window-size=1920,1080",
+      "--disable-web-security",
+      "--disable-features=IsolateOrigins,site-per-process",
     ],
     ignoreHTTPSErrors: true,
   });
 
   try {
     const page = await browser.newPage();
+    
+    // Add error handling for navigation
+    page.on('error', err => {
+      console.error('Page error:', err);
+    });
 
+    page.on('pageerror', err => {
+      console.error('Page error:', err);
+    });
+
+    // Improved navigation handling
+    const response = await Promise.race([
+      page.goto(url, {
+        waitUntil: ['domcontentloaded'],
+        timeout: 60000,
+      }),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Navigation timeout')), 65000)
+      )
+    ]);
+
+    if (!response || !response.ok()) {
+      throw new Error(`Failed to navigate to ${url}`);
+    }
+
+    // Wait for the page to be fully loaded
+    await page.waitForSelector('body', { timeout: 10000 });
+    
     // Set viewport size
     await page.setViewport({ width: 1920, height: 1080 });
 
@@ -91,10 +119,11 @@ async function extractImages(url) {
     }) ?? "";
 
     // Extract images based on the website
-    const images = await page.evaluate(async (url, initialDescription) => {
+    const data = await page.evaluate(async (url, initialDescription, initTitle) => {
       const imageUrls = new Set();
-      let localTitle = document.title;
+      let localTitle = document.title ?? initTitle;
       let localDescription = initialDescription;
+
 
       if (url.includes("amazon")) {
         localTitle = document.querySelector("#title")?.textContent ?? document.title;
@@ -204,36 +233,17 @@ async function extractImages(url) {
           }
         });
       }
+      return {
+        title: localTitle,
+        description: localDescription,
+        images: Array.from(imageUrls),
+      };
+    }, url, description, title);
 
-      return Array.from(imageUrls);
-    }, url, description);
+    // Fix: Return only the data object since it already contains title, description, and images
+    return data;
 
-    return {
-      title,
-      description,
-      images,
-    };
-
-    // Save cookies after successful navigation for future use
-    if (url.includes("etsy")) {
-      const cookies = await page.cookies();
-      fs.writeFileSync("./cookies.json", JSON.stringify(cookies, null, 2));
-    }
-
-    // If you need to save HTML content, do it here instead
-    if (url.includes("amazon")) {
-      const amazonHtml = await page.content();
-      fs.writeFileSync("amazon-element.log", amazonHtml);
-    }
-
-    return {
-      title,
-      description,
-      images,
-    };
   } catch (error) {
-    console.log("error", error);
-    
     throw new Error(`Failed to extract images: ${error.message}`);
   } finally {
     await browser.close();
@@ -262,23 +272,3 @@ app
   .on("error", (err) => {
     console.error(err);
   });
-
-// Add this function to simulate scrolling
-async function autoScroll(page) {
-  await page.evaluate(async () => {
-    await new Promise((resolve) => {
-      let totalHeight = 0;
-      const distance = 100;
-      const timer = setInterval(() => {
-        const scrollHeight = document.body.scrollHeight;
-        window.scrollBy(0, distance);
-        totalHeight += distance;
-
-        if (totalHeight >= scrollHeight) {
-          clearInterval(timer);
-          resolve();
-        }
-      }, 100);
-    });
-  });
-}
