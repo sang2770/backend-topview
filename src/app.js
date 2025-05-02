@@ -234,8 +234,8 @@ async function extractImages(url) {
         });
       }
       return {
-        title: localTitle,
-        description: localDescription,
+        title: localTitle.replace(/\s+/g,'').trim(),
+        description: localDescription.replace(/\s+/g, ' ').trim(),
         images: Array.from(imageUrls),
       };
     }, url, description, title);
