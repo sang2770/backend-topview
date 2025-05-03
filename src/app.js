@@ -110,9 +110,7 @@ async function extractImages(url) {
     // Add a longer wait time for Etsy specifically
     await new Promise((resolve) => setTimeout(resolve, 8000));
 
-    await page.waitForFunction(
-      () => document.title && document.title.trim().length > 0
-    );
+    await page.evaluate(() => console.log("DEBUG title:", document.title));
 
     var title = await page.title();
     var description = await page.evaluate(() => {
