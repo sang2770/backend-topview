@@ -31,7 +31,7 @@ const PORT = 3000;
 
 async function extractImages(url) {
   console.log("extractImages", url);
-  
+
   const browser = await puppeteerExtra.launch({
     headless: "new",
     args: [
@@ -46,7 +46,7 @@ async function extractImages(url) {
 
   try {
     const page = await browser.newPage();
-    
+
     // Add error handling for navigation
     page.on('error', err => {
       console.error('Page error:', err);
@@ -62,7 +62,7 @@ async function extractImages(url) {
         waitUntil: ['domcontentloaded'],
         timeout: 60000,
       }),
-      new Promise((_, reject) => 
+      new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Navigation timeout')), 65000)
       )
     ]);
@@ -73,7 +73,7 @@ async function extractImages(url) {
 
     // Wait for the page to be fully loaded
     await page.waitForSelector('body', { timeout: 10000 });
-    
+
     // Set viewport size
     await page.setViewport({ width: 1920, height: 1080 });
 
@@ -111,6 +111,7 @@ async function extractImages(url) {
     await new Promise((resolve) => setTimeout(resolve, 8000));
 
     await page.evaluate(() => console.log("DEBUG title:", document.title));
+    console.log("Final URL:", page.url());
 
     var title = await page.title();
     var description = await page.evaluate(() => {
@@ -224,6 +225,11 @@ async function extractImages(url) {
             if (img.src) imageUrls.add(img.src);
           });
         }
+      } else if (url.includes("aliexpress")) {
+        localTitle = document.querySelector("h1")?.textContent ?? document.title;
+        localDescription = document.querySelector(
+          'meta[name="description"]'
+        )?.content ?? initialDescription;
       } else if (imageUrls.size === 0) {
         // Generic image extraction        
         document.querySelectorAll("img").forEach((img) => {
@@ -237,7 +243,7 @@ async function extractImages(url) {
         });
       }
       return {
-        title: localTitle.replace(/\s+/g,'').trim(),
+        title: localTitle.replace(/\s+/g, '').trim(),
         description: localDescription.replace(/\s+/g, ' ').trim(),
         images: Array.from(imageUrls),
       };
