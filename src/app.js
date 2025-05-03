@@ -111,8 +111,7 @@ async function extractImages(url) {
     await new Promise((resolve) => setTimeout(resolve, 8000));
 
     await page.waitForFunction(
-      () => document.title && document.title.trim().length > 0,
-      { timeout: 10000 }
+      () => document.title && document.title.trim().length > 0
     );
 
     var title = await page.title();
