@@ -108,7 +108,12 @@ async function extractImages(url) {
     await page.waitForSelector("body");
 
     // Add a longer wait time for Etsy specifically
-    await new Promise((resolve) => setTimeout(resolve, 5000));
+    await new Promise((resolve) => setTimeout(resolve, 8000));
+
+    await page.waitForFunction(
+      () => document.title && document.title.trim().length > 0,
+      { timeout: 10000 }
+    );
 
     var title = await page.title();
     var description = await page.evaluate(() => {
@@ -123,7 +128,8 @@ async function extractImages(url) {
       const imageUrls = new Set();
       let localTitle = document.title ?? initTitle;
       let localDescription = initialDescription;
-
+      console.log("localTitle", localTitle);
+      console.log("localDescription", localDescription);
 
       if (url.includes("amazon")) {
         localTitle = document.querySelector("#title")?.textContent ?? document.title;
